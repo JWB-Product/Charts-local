@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Interactive timeline and growth charts — demo</title>
+  <!-- Plotly CDN (fine for a quick test; swap to inline/offline later if needed) -->
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <style>
+    :root{
+      --brand-green: #13301B;
+      --ink: #0b0c0c;
+      --bg: #0f1111; /* dark canvas so white outlines show */
+      --card: #161919;
+      --muted: #9aa0a6;
+      --white: #ffffff;
+    }
+    html,body{
+      margin:0;
+      padding:0;
+      background:var(--bg);
+      color:var(--white);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
+      line-height:1.45;
+    }
+    .wrap{
+      max-width: 1100px;
+      margin: 32px auto 60px;
+      padding: 0 16px;
+    }
+    h1,h2{
+      margin: 0 0 12px;
+      font-weight: 700;
+    }
+    h1{ font-size: 1.5rem; }
+    h2{ font-size: 1.2rem; color: var(--muted); }
+    .card{
+      background: var(--card);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 12px;
+      padding: 14px;
+      margin: 16px 0 28px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+    }
+    .chart{
+      width: 100%;
+      height: 420px;
+      outline: 1px solid rgba(255,255,255,0.7); /* thin white outline */
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .legend-note{
+      font-size: 0.9rem;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+    /* Timeline details panel */
+    .details{
+      margin-top: 10px;
+      border: 1px solid rgba(255,255,255,0.7); /* white outline */
+      border-radius: 10px;
+      padding: 12px;
+      background: #121414;
+      display: none;
+    }
+    .details.open{ display:block; }
+    .pill{
+      display:inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border:1px solid var(--white);
+      color: var(--white);
+      margin-right: 6px;
+      font-size: 12px;
+    }
+    .pill.phase{ border-color: var(--brand-green); color: var(--brand-green); background: transparent; }
+    .pill.milestone{ border-color: var(--white); color: var(--white); }
+    a.inline{
+      color: var(--brand-green);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    /* High contrast focus for keyboard users */
+    :focus-visible{
+      outline: 2px solid var(--brand-green);
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap" role="main">
+    <h1>Interactive timeline and growth charts — demo</h1>
+    <p class="legend-note">Dummy data. Click a timeline item to expand details. Hover the line chart to see yearly values.</p>
+
+    <div class="card" aria-labelledby="timeline-title">
+      <h2 id="timeline-title">Programme timeline</h2>
+      <div id="timeline" class="chart" role="img" aria-label="Timeline with phases and milestones for a sample programme"></div>
+      <div id="timeline-details" class="details" aria-live="polite"></div>
+      <p class="legend-note">White = milestones. Green = phases. Thin white outlines throughout with brand green accents.</p>
+    </div>
+
+    <div class="card" aria-labelledby="growth-title">
+      <h2 id="growth-title">Growth over time — West of England vs rest of UK (dummy)</h2>
+      <div id="growth" class="chart" role="img" aria-label="Line chart comparing growth for West of England and rest of UK"></div>
+      <p class="legend-note">Move the cursor along the lines to view exact values for each year.</p>
+    </div>
+  </div>
+
+  <script>
+    // ---------- DUMMY DATA ----------
+    // Timeline: phases (date ranges) and milestones (points)
+    const phases = [
+      { id: "p1", label: "Discovery", start: "2025-09-01", end: "2025-10-10", type: "phase",
+        description: "Initial research, stakeholder interviews, and problem framing. Outputs: brief, success metrics." },
+      { id: "p2", label: "Build", start: "2025-10-13", end: "2025-11-28", type: "phase",
+        description: "Implementation and QA. Outputs: MVP, accessibility checks, content entries." },
+      { id: "p3", label: "Public launch", start: "2025-12-05", end: "2025-12-20", type: "phase",
+        description: "Soft launch, monitoring, fixes, and comms." }
+    ];
+    const milestones = [
+      { id: "m1", label: "Consultation opens", date: "2025-09-16", type: "milestone",
+        description: "Public consultation opens for feedback on the draft." },
+      { id: "m2", label: "Report to committee", date: "2025-11-12", type: "milestone",
+        description: "Paper submitted with recommendations." },
+      { id: "m3", label: "Go/No-Go", date: "2025-12-03", type: "milestone",
+        description: "Formal sign-off decision." }
+    ];
+
+    // Growth line chart data (dummy, yearly)
+    const years = Array.from({length: 11}, (_,i)=>2015+i);
+    const west = [92, 95, 98, 101, 103, 106, 108, 112, 114, 117, 121]; // index baseline = 100 somewhere mid
+    const rest = [90, 93, 96, 98, 100, 102, 104, 106, 109, 111, 113];
+
+    // ---------- TIMELINE ----------
+    // Build phase bars as horizontal bars using shapes + invisible scatter to enable click/hover
+    const phaseTraces = phases.map((p, idx) => {
+      return {
+        type: "scatter",
+        mode: "markers",
+        x: [p.start, p.end],
+        y: [p.label, p.label],
+        marker: { size: 12, color: "rgba(0,0,0,0)" }, // invisible markers, clicks handled via points
+        customdata: [p, p],
+        hoverinfo: "skip",
+        showlegend: false
+      };
+    });
+
+    // Milestones as points on their own row
+    const milestoneTrace = {
+      type: "scatter",
+      mode: "markers+text",
+      x: milestones.map(m => m.date),
+      y: milestones.map(_ => "Milestones"),
+      text: milestones.map(m => m.label),
+      textposition: "top center",
+      textfont: { color: "#ffffff", size: 12 },
+      marker: {
+        size: 10,
+        color: "#ffffff",
+        line: { width: 1, color: "#ffffff" } // thin white outline
+      },
+      name: "Milestones",
+      customdata: milestones,
+      hovertemplate: "<b>%{customdata.label}</b><br>%{x|%d %b %Y}<extra>Milestone</extra>"
+    };
+
+    // A background “phase bars” layer using shapes
+    function phaseShapes(items){
+      return items.map((p,i)=>({
+        type: "rect",
+        xref: "x",
+        yref: "y",
+        x0: p.start,
+        x1: p.end,
+        y0: i - 0.35,
+        y1: i + 0.35,
+        line: { color: "#ffffff", width: 1 },      // thin white outline
+        fillcolor: "rgba(19,48,27,0.25)"           // brand green with transparency
+      }));
+    }
+
+    const timelineLayout = {
+      paper_bgcolor: 'rgba(0,0,0,0)',
+      plot_bgcolor: 'rgba(0,0,0,0)',
+      margin: {l: 120, r: 20, t: 30, b: 50},
+      xaxis: {
+        showgrid: false,
+        tickformat: "%d %b %Y",
+        color: "#ffffff"
+      },
+      yaxis: {
+        categoryorder: "array",
+        categoryarray: [...phases.map(p=>p.label), "Milestones"].reverse(),
+        color: "#ffffff"
+      },
+      shapes: phaseShapes(phases),
+      showlegend: false
+    };
+
+    const timelineData = [
+      ...phaseTraces,
+      milestoneTrace
+    ];
+
+    Plotly.newPlot('timeline', timelineData, timelineLayout, {displayModeBar: false, responsive: true});
+
+    // Click handler to expand details
+    const detailsEl = document.getElementById('timeline-details');
+    const fmtDate = d => new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+
+    document.getElementById('timeline').on('plotly_click', (ev) => {
+      const p = ev.points?.[0];
+      if(!p) return;
+      const cd = p.customdata;
+
+      // Detect if clicked a milestone or a phase row (by y label match)
+      let content = "";
+      if(cd && cd.type === "milestone"){
+        content = `
+          <div class="pill milestone" aria-hidden="true">Milestone</div>
+          <strong>${cd.label}</strong><br />
+          <span>${fmtDate(cd.date)}</span>
+          <p style="margin-top:6px">${cd.description}</p>
+        `;
+      } else if (cd && cd.type === "phase"){
+        content = `
+          <div class="pill phase" aria-hidden="true">Phase</div>
+          <strong>${cd.label}</strong><br />
+          <span>${fmtDate(cd.start)} to ${fmtDate(cd.end)}</span>
+          <p style="margin-top:6px">${cd.description}</p>
+        `;
+      } else {
+        // If the invisible phase trace point was clicked, infer the phase by y category
+        const yCat = p.y;
+        const phase = phases.find(ph => ph.label === yCat);
+        if(phase){
+          content = `
+            <div class="pill phase" aria-hidden="true">Phase</div>
+            <strong>${phase.label}</strong><br />
+            <span>${fmtDate(phase.start)} to ${fmtDate(phase.end)}</span>
+            <p style="margin-top:6px">${phase.description}</p>
+          `;
+        }
+      }
+
+      if(content){
+        detailsEl.innerHTML = content + `<p style="margin-top:8px">
+          <a class="inline" href="#" onclick="document.getElementById('timeline-details').classList.remove('open');return false;">Close details</a>
+        </p>`;
+        detailsEl.classList.add('open');
+        detailsEl.setAttribute('tabindex','-1');
+        detailsEl.focus({preventScroll:false});
+      }
+    });
+
+    // ---------- GROWTH LINE CHART ----------
+    const growthLayout = {
+      paper_bgcolor: 'rgba(0,0,0,0)',
+      plot_bgcolor: 'rgba(0,0,0,0)',
+      margin: {l: 60, r: 20, t: 10, b: 40},
+      xaxis: {
+        tickmode: "linear",
+        dtick: 1,
+        color: "#ffffff",
+        gridcolor: "rgba(255,255,255,0.08)"
+      },
+      yaxis: {
+        title: "Index (2015 = 90)",
+        color: "#ffffff",
+        gridcolor: "rgba(255,255,255,0.12)"
+      },
+      hovermode: "x unified",
+      hoverlabel: { bgcolor: "#121414", font: { color: "#ffffff" } }
+    };
+
+    const westTrace = {
+      type: "scatter",
+      mode: "lines+markers",
+      x: years,
+      y: west,
+      name: "West of England",
+      line: { width: 2, color: "#13301B" },  // brand green
+      marker: { size: 6, color: "#13301B", line: { color: "#ffffff", width: 1 } }, // thin white outline on markers
+      hovertemplate: "<b>West of England</b><br>%{x}: %{y:.1f}<extra></extra>"
+    };
+
+    const restTrace = {
+      type: "scatter",
+      mode: "lines+markers",
+      x: years,
+      y: rest,
+      name: "Rest of UK (avg)",
+      line: { width: 2, color: "#d0d4d6" },
+      marker: { size: 6, color: "#d0d4d6", line: { color: "#ffffff", width: 1 } },
+      hovertemplate: "<b>Rest of UK (avg)</b><br>%{x}: %{y:.1f}<extra></extra>"
+    };
+
+    Plotly.newPlot('growth', [westTrace, restTrace], growthLayout, {displayModeBar:false, responsive:true});
+
+    // Keyboard accessibility: allow Enter to close details when focused
+    detailsEl.addEventListener('keydown', (e)=>{
+      if(e.key === 'Escape'){
+        detailsEl.classList.remove('open');
+      }
+    });
+  </script>
+</body>
+</html>
