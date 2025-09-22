@@ -3,44 +3,71 @@
 <head>
   <meta charset="utf-8">
   <title>Economic growth 2019–2023</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
   <style>
+    :root{
+      --bg: #f9f7f4;
+      --ink: #13301B;
+      --green: #134621;  /* UK line */
+      --purple: #9C64AB; /* West of England line */
+    }
+    html, body {
+      height: 100%;
+    }
     body {
-      background: #f9f7f4;
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
       font-family: "Open Sans", Arial, sans-serif;
-      color: #13301B;
-      margin: 20px;
+    }
+    .wrap {
+      /* Fill the iframe viewport height so the plot is vertically balanced */
+      min-height: 100%;
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+      box-sizing: border-box;
+      gap: 6px;
     }
     h1 {
-      font-size: 1.4em;
-      margin-bottom: 0.2em;
+      font-size: 1.25rem;
+      margin: 0 0 2px 0;
     }
-    h2 {
-      font-size: 1em;
-      font-weight: normal;
-      margin-top: 0;
-      margin-bottom: 1.2em;
+    .sub {
+      margin: 0 0 8px 0;
       color: #444;
+      font-size: 0.95rem;
     }
     #chart {
+      flex: 1 1 auto;          /* let the chart occupy remaining height */
+      min-height: 360px;        /* sensible floor for small iframes */
       width: 100%;
-      height: 500px;
+    }
+
+    /* Mobile tweaks */
+    @media (max-width: 768px){
+      h1 { font-size: 1.1rem; }
+      .sub { font-size: 0.9rem; }
     }
   </style>
 </head>
 <body>
-  <h1>Economic growth 2019–2023</h1>
-  <h2>GDP at constant prices. Index: 2019 = 100</h2>
-  <div id="chart"></div>
+  <div class="wrap">
+    <h1>Economic growth 2019–2023</h1>
+    <p class="sub">GDP at constant prices. Index: 2019 = 100</p>
+    <div id="chart" role="img" aria-label="Interactive line chart comparing UK and West of England GDP index from 2019 to 2023"></div>
+  </div>
 
   <script>
+    // Data
     var traceUK = {
       x: [2019, 2020, 2021, 2022, 2023],
       y: [100.0, 89.8, 97.4, 102.1, 102.5],
       name: "UK",
       mode: "lines+markers",
-      line: {color: "#134621", width: 3},   // Forest Green
-      marker: {color: "#134621", size: 8}
+      line: {color: "#134621", width: 3},
+      marker: {color: "#134621", size: 7}
     };
 
     var traceWest = {
@@ -48,46 +75,56 @@
       y: [100.0, 91.6, 103.2, 107.0, 110.2],
       name: "West of England",
       mode: "lines+markers",
-      line: {color: "#9C64AB", width: 3},   // Soft Purple
-      marker: {color: "#9C64AB", size: 8}
+      line: {color: "#9C64AB", width: 3},
+      marker: {color: "#9C64AB", size: 7}
     };
 
     var data = [traceUK, traceWest];
 
+    // Base layout
     var layout = {
-  plot_bgcolor: "#f9f7f4",
-  paper_bgcolor: "#f9f7f4",
-  font: {color: "#13301B"},
-  xaxis: {
-    title: "Year",
-    tickmode: "linear",
-    dtick: 1,
-    gridcolor: "rgba(0,0,0,0.1)"
-  },
-  yaxis: {
-    title: "GDP index (2019 = 100)",
-    gridcolor: "rgba(0,0,0,0.1)"
-  },
-  legend: {
-    orientation: "h",              // horizontal
-    yanchor: "top",
-    y: -0.3,                       // push it below the x-axis
-    xanchor: "center",
-    x: 0.5,
-    bgcolor: "#f9f7f4",
-    bordercolor: "rgba(0,0,0,0)"
-  },
-  margin: {l: 60, r: 30, t: 30, b: 80} // add a bit more bottom space
-};
+      paper_bgcolor: "#f9f7f4",
+      plot_bgcolor: "#f9f7f4",
+      font: {color: "#13301B", size: 14},
+      hovermode: "x unified",
+      xaxis: {
+        title: "Year",
+        tickmode: "linear",
+        dtick: 1,
+        gridcolor: "rgba(0,0,0,0.1)"
+      },
+      yaxis: {
+        title: "GDP index (2019 = 100)",
+        gridcolor: "rgba(0,0,0,0.1)"
+      },
+      legend: {
+        orientation: "h",
+        yanchor: "top",
+        y: -0.25,
+        xanchor: "center",
+        x: 0.5,
+        bgcolor: "rgba(0,0,0,0)"
+      },
+      margin: {l: 60, r: 20, t: 10, b: 80}
+    };
 
+    // Render with responsive behaviour
+    Plotly.newPlot("chart", data, layout, {displayModeBar: true, responsive: true});
 
-Plotly.newPlot("chart", data, layout, {
-  displayModeBar: true,
-  responsive: true
-});
-
+    // Micro-tune for narrow iframes after initial render
+    function tweakForWidth(){
+      var w = document.getElementById("chart").clientWidth || window.innerWidth;
+      var fontSize = w < 420 ? 12 : w < 768 ? 13 : 14;
+      var bottom = w < 420 ? 95 : w < 768 ? 85 : 80;
+      Plotly.relayout("chart", {
+        "font.size": fontSize,
+        "margin.b": bottom,
+        "legend.y": -0.30  // nudge legend a bit further down on tighter widths
+      });
+    }
+    window.addEventListener("resize", tweakForWidth);
+    // run once
+    tweakForWidth();
   </script>
 </body>
 </html>
-
-
