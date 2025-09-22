@@ -55,25 +55,31 @@
     var data = [traceUK, traceWest];
 
     var layout = {
-      plot_bgcolor: "#f9f7f4",
-      paper_bgcolor: "#f9f7f4",
-      font: {color: "#13301B"},
-      xaxis: {
-        title: "Year",
-        tickmode: "linear",
-        dtick: 1,
-        gridcolor: "rgba(0,0,0,0.1)"
-      },
-      yaxis: {
-        title: "GDP index (2019 = 100)",
-        gridcolor: "rgba(0,0,0,0.1)"
-      },
-      legend: {
-        bgcolor: "#f9f7f4",
-        bordercolor: "rgba(0,0,0,0)"
-      },
-      margin: {l: 60, r: 30, t: 30, b: 50}
-    };
+  plot_bgcolor: "#f9f7f4",
+  paper_bgcolor: "#f9f7f4",
+  font: {color: "#13301B"},
+  xaxis: {
+    title: "Year",
+    tickmode: "linear",
+    dtick: 1,
+    gridcolor: "rgba(0,0,0,0.1)"
+  },
+  yaxis: {
+    title: "GDP index (2019 = 100)",
+    gridcolor: "rgba(0,0,0,0.1)"
+  },
+  legend: {
+    orientation: "h",              // horizontal
+    yanchor: "top",
+    y: -0.3,                       // push it below the x-axis
+    xanchor: "center",
+    x: 0.5,
+    bgcolor: "#f9f7f4",
+    bordercolor: "rgba(0,0,0,0)"
+  },
+  margin: {l: 60, r: 30, t: 30, b: 80} // add a bit more bottom space
+};
+
 
 Plotly.newPlot("chart", data, layout, {
   displayModeBar: true,
@@ -83,4 +89,5 @@ Plotly.newPlot("chart", data, layout, {
   </script>
 </body>
 </html>
+
 
